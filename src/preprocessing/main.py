@@ -1,6 +1,6 @@
 '''
 Main works as CLI tool for orchestrating
-submodule scripts. See mod lvl <cli_help> str
+submodule scripts. See mod lvl <CLI_HELP> str
 for more info.
 
 Convention:
@@ -9,7 +9,7 @@ Convention:
     arg x should use func x which uses the in x mod.
 
     For uniformity, each task function should 
-    accept: current_arg, state, arg value. 
+    have the same signature as dev() in this mod.
 '''
 
 import sys
@@ -50,14 +50,34 @@ def cli_actions()-> dict:
     ''' Binds CLI arguments to funcs. 
         Keys are CLI argument identifiers,
         while vals are used as such:
-            [0] position for CLI arg val.
+            [0] Does this arg expect a value?
+                if not, then the next item in
+                sys.argv will be interpreted as 
+                another arg.
+
             [1] associated function.
     '''
     return {
-        '-articles' : [1, articles],
-        '-wikiapi'  : [0, wikiapi]
+        # // -devhook is used for development.
+        '-devhook'  : [False, devhook],
+        '-articles' : [True, articles],
+        '-wikiapi'  : [False, wikiapi]
     }
 
+
+def devhook(arg_id, arg_val, state)-> object:
+    ''' @@ reserved for development; recieve 
+        <state> for inspecting <state> and/or
+        hooking up experimental modules.
+    '''
+    print(f'''
+        arg_id      : {arg_id}
+        arg_val     : {arg_val}
+        state type  : {type(state)}
+    ''')
+    print(state)
+
+    return state
 
 
 def articles(arg_id, arg_val, _state)-> List[ArticleList]:
@@ -111,26 +131,35 @@ def start() -> None:
     # // Keeping state between arguments, used for piping.
     state = None
 
-    # // Always assume that arg comes right after command.
-    for i  in range(0, len(args), 2):
+    # // Odd looping because it enables argument jumping.
+    # // Some arguments don't accept values, while others
+    # // do, so having flexibility in iteration is good.
+    i = 0
+    while i < len(args):
+        step = 1
         try:
-            # // Assumed to be keys in dct
+            # // Assumed to be a recognised arg.
             current_arg = args[i]
-            # // Unpack for readability.
+            # // Unpack for readability and check if arg is valid.
             arg_targets = cli_actions().get(current_arg)
             assert arg_targets, f'Unrecognised arg: {current_arg}'
-            argjump, func = arg_targets
-            # // Point of action -- only update state if 
-            # // task-func returns anything.
-            res = func(current_arg, args[i+argjump], state)
+            # // Unpack vals for readability.
+            next_is_val, func = arg_targets
+            # // Optional val for current arg.
+            arg_val = args[i+1] if next_is_val else None
+            # // Use task func. Update state if anything is returned.
+            res = func(current_arg, arg_val, state)
             state = res if res != None else state
+            # // Adding potential step.
+            step += 1 if next_is_val else 0
 
         except Exception as e:
             print(f'issue on arg "{args[i]}": '+ 
                     f'\n\tException: {e}')
 
             print("\n\n", CLI_HELP)
-        # // @ Deb
-        print(state)
+        finally:
+            # // In either case; increment counter.
+            i += step
 
 start()
