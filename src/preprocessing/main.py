@@ -1,7 +1,10 @@
 '''
 Main works as CLI tool for orchestrating
-submodule scripts. See mod lvl <CLI_HELP> str
-for more info.
+submodule scripts -- meant to be 'thin glue'
+of loosly coupled modules (which should hide
+complexity from this mod).
+
+See mod lvl <CLI_HELP> str for more info.
 
 Convention:
     argument should be named as its mapped function
@@ -58,24 +61,35 @@ def cli_actions()-> dict:
             [1] associated function.
     '''
     return {
-        # // -devhook is used for development.
+        # // reserved for development     # // 
+        '-inspect'  : [False, inspect],
         '-devhook'  : [False, devhook],
+        # // ---------------------------- # //
         '-articles' : [True, articles],
         '-wikiapi'  : [False, wikiapi]
     }
 
 
-def devhook(arg_id, arg_val, state)-> object:
-    ''' @@ reserved for development; recieve 
-        <state> for inspecting <state> and/or
-        hooking up experimental modules.
-    '''
+def inspect(arg_id, arg_val, state)-> object:
+    '@@ reserved hook for inspecting state'
+    sample = (
+        state[:2] 
+        if type(state) is list else 
+        state
+    )
     print(f'''
-        arg_id      : {arg_id}
-        arg_val     : {arg_val}
-        state type  : {type(state)}
+        arg_id          : {arg_id}
+        arg_val         : {arg_val}
+        state type      : {type(state)}
+        sample(if lst)  : {sample}
     ''')
-    print(state)
+    return state
+
+
+def devhook(arg_id, arg_val, state)-> object:
+    ''' @@ reserved for development; recieve <state> 
+        for hooking up experimental modules.
+    '''
 
     return state
 
