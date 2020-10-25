@@ -23,7 +23,7 @@ class ArticleList:
 
 
 
-def load_articles(path:str, delimiter='\t')-> List[ArticleList]:
+def load_articles(path:str, delimiter:str='\t')-> List[ArticleList]:
     ''' Uses content in <path> to create and return a list of
         ArticleList objs. The file at <path> is expected to 
         have a very specific format:

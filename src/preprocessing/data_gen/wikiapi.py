@@ -1,5 +1,7 @@
 '''
-Used to pull data from wikipedia.
+Used to pull data from wikipedia using the
+wikipedia python module. 
+
 Contains:
     - ArticleData:      Class for containing the 
                         data of wikipedia articles,
