@@ -1,0 +1,13 @@
+# CopyPaste of topics and article names in
+# http://schools-wikipedia.org/wp/index/subject-Art.html
+# This file is used for automatic parsing.
+
+
+[TOPIC=Art]
+
+Abstract art	Aesthetics
+
+
+[TOPIC=Mathematics]
+
+0 (number)	1 (number)
