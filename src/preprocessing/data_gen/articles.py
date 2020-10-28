@@ -11,7 +11,7 @@ Impl:
 
 '''
 
-from typing import List
+
 
 
 
@@ -23,10 +23,11 @@ class ArticleList:
 
 
 
-def load_articles(path:str, delimiter:str='\t')-> List[ArticleList]:
-    ''' Uses content in <path> to create and return a list of
-        ArticleList objs. The file at <path> is expected to 
-        have a very specific format:
+def load_articles(path:str, delimiter:str='\t'): # // -> gen
+    ''' Returns a generator which pulls content from
+        <path> and gives ArticleList objects. The file
+        at <path> is expected to have a very specific
+        format:
             -   '#' are ignored lines, used for commenting
             -   '[TOPIC=XYZ]' denotes topic start and end.
                 Everything below this notation should be
@@ -36,8 +37,7 @@ def load_articles(path:str, delimiter:str='\t')-> List[ArticleList]:
         <delimiter> is used to specify how copypaste topics
         are separated.
     '''
-    # // Keep dict of topics:[article names]
-    res = {}
+   
     # // Unsafe -- allowing crash.
     with open(path, 'r') as f:
         current_topic = ''
@@ -58,17 +58,10 @@ def load_articles(path:str, delimiter:str='\t')-> List[ArticleList]:
                     current_topic = current_topic.replace(elm, '')
                 continue
 
-            # // Add new dict entry if not exists.
-            if not res.get(current_topic):
-                res[current_topic] = []
-
             # // Add res content as list.
             row = row.replace('\n', '').split(delimiter)
-            res[current_topic].extend(row)
+            yield ArticleList(
+                topic=current_topic,
+                article_names=row
+            )
 
-    # // Unpack result dict into list of ArticleList.
-    # // Primarily done for typehint purposes.
-    return [
-        ArticleList(topic=k, article_names=v)
-            for k, v in res.items()
-    ]

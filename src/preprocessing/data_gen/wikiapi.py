@@ -17,7 +17,7 @@ Contains:
 import time
 import wikipedia
 
-from typing import List
+
 
 # // Used for pausing API requests to avoid spamming.
 api_pause_sec = 2
@@ -40,23 +40,24 @@ class ArticleData:
         self.topics_autolinked = [] # // Topic assignment.
 
 
-def pull_articles(names:list)-> List[ArticleData]:
-    ''' Use a list of article <names> to fetch data 
-        from wiki. Returns a list of ArticleData.
+def pull_articles(names:list): # // -> Generator
+    ''' Use a list of article <names> to create
+        and return a generator which pulls
+        articles from wiki (API) and gives them
+        as ArticleData instances.
     '''
-    res = []
+
     for name in names:
         # // Impose additional rate-limit for 
         # // ethical reasons.
         time.sleep(api_pause_sec)
         # // Fetch and append data
         data = wikipedia.page(name)
-        res.append(ArticleData(
+        yield ArticleData(
             name=name,
             url=data.url,
             content_raw=data.content,
             links=data.links,
             html=data.html
-        ))
-    return res
+        )
 
