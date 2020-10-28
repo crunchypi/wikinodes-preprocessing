@@ -58,6 +58,6 @@ def pull_articles(names:list): # // -> Generator
             url=data.url,
             content_raw=data.content,
             links=data.links,
-            html=data.html
+            html=data.html()
         )
 
