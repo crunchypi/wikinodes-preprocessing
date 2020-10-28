@@ -21,7 +21,7 @@ import os
 from typing import List
 from data_gen.articles import ArticleList, load_articles
 from data_gen.wikiapi import ArticleData, pull_articles
-
+from neo4j_tools.comm import Neo4jComm
 
 # // Acts as documentation -- also used as 
 # // 'help' printout for CLI
@@ -66,7 +66,8 @@ def cli_actions()-> dict:
         '-devhook'  : [False, devhook],
         # // ---------------------------- # //
         '-articles' : [True, articles],
-        '-wikiapi'  : [False, wikiapi]
+        '-wikiapi'  : [False, wikiapi],
+        '-neo4jpush': [True, neo4jpush],
     }
 
 
@@ -126,6 +127,42 @@ def wikiapi(arg_id, _arg_val, state): # // -> gen
         # // Attach prelinked topic before yield.
         res.topics_prelinked = topic
         yield res
+
+
+def neo4jpush(arg_id, arg_val, state)-> object:
+    arg_val = arg_val.split(',')
+    assert len(arg_val) == 3, '''
+        Used the following:
+                Arg: '{arg_id}'
+        .. but the following value
+        did not contain enough info.
+        Should be: <uri>,<usr>,<pwd>
+        
+    '''
+    # // Instantiate neo4j communication tool
+    uri, usr, pwd = arg_val
+    n4jc = Neo4jComm(uri=uri, usr=usr, pwd=pwd)
+
+    for obj in state:
+        # // Verify that -wikiapi was used.
+        assert type(obj) is ArticleData, f'''
+            Used the following:
+                Arg: '{arg_id}'
+
+            .. but could not access a state 
+            which contains valid wiki article
+            data. Use -wikiapi before this.
+        '''
+        n4jc.create_any_node(
+            label='wikidata',
+            # // Load everything from ArticleData
+            # // into the database.
+            **obj.__dict__
+        )
+
+    return state
+
+
 
 
 def start() -> None:
