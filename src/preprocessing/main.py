@@ -90,11 +90,10 @@ def devhook(arg_id, arg_val, state)-> object:
     ''' @@ reserved for development; recieve <state> 
         for hooking up experimental modules.
     '''
-
     return state
 
 
-def articles(arg_id, arg_val, _state)-> List[ArticleList]:
+def articles(arg_id, arg_val, _state): # // -> gen
     # // Handle file doesn't exist.
     assert os.path.exists(arg_val), f'''
         Used the following:
@@ -103,38 +102,30 @@ def articles(arg_id, arg_val, _state)-> List[ArticleList]:
         
         ...but the val is not a vald filename.
     '''
-    return load_articles(arg_val)
+    return load_articles(path=arg_val)
 
 
-def wikiapi(arg_id, _arg_val, state)-> List[ArticleData]:
-    err_str = '''
-        Used the following:
-            Arg: '{arg_id}'
-
-        ..but could not access a state which
-        contains valid wikipedia article names.
-        Use -articles argument before this one.
-
-    '''
-    # // Verify that <state> is a list of ArticleList objs.
-    assert type(state) is list, err_str
-    for elm in state: 
-        assert type(elm) is ArticleList, err_str
-    # // aliasing for shorted lines.
-    # mod = data_gen.wikiapi
-    res = []
+def wikiapi(arg_id, _arg_val, state): # // -> gen
+    
     for obj in state:
+        assert type(obj) is ArticleList, '''
+            Used the following:
+                Arg: '{arg_id}'
+
+            ..but could not access a state which
+            contains valid wikipedia article names.
+            Use -articles argument before this one.
+        '''
         # // Split data
         topic, article_names = obj.topic, obj.article_names
-        # // For module isolation reasons, the following func call
-        # // does not know of the typehint ArticleList. As such, it
-        # // only accepts a list of names <article_names>. The var
-        # // <topic> defined above will be added back after this call.
+        # // Get data and extract from generator.
+        # // Should be one item there since querying
+        # // a single artile name. 
         res = pull_articles(names=article_names)
-        for d in res:
-            d.topics_prelinked = topic
-
-    return res
+        res = next(res)
+        # // Attach prelinked topic before yield.
+        res.topics_prelinked = topic
+        yield res
 
 
 def start() -> None:
