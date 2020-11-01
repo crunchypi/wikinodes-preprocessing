@@ -57,24 +57,35 @@ class Neo4jComm:
             yield sess.run(cql, **bindings)
 
 
-    def clear(self)-> None:
-        'Clear the entire database'
-        self.__push(cql='MATCH (x) DETACH DELETE x')
+    def clear(self, label:str=None)-> None:
+        ''' Clear the database. Adding <label> will 
+            narrow down what will be cleared by
+            labels
+        ''' 
+        cql = f'''
+            MATCH (x{':'+label if label else ''})
+            DETACH DELETE x
+        '''
+        self.__push(cql=cql)
 
 
-    def __construct_props(self, names:list)-> str:
+    def __construct_props(self, names:list, alias:str)-> str:
         ''' Convenience hack for creating a str
             which can be used to bind properties
             to a neo4j node/rel. Returns the 
             following fmt:
-                '{prop1:$prop1, prop2:$prop2, ... }'
+                '{
+                    <prop1>:$<alias><prop1>, 
+                    <prop2>:$<alias><prop2>, 
+                    ... 
+                }'
         '''
         p_str = '{'
         # // Used to know when to stop putting commas
         # // after each property id.
         n = len(names) - 1
         for i, k in enumerate(names):
-            p_str += f'{k}:${k}'
+            p_str += f'{k}:${alias}{k}'
             # // Do not add a comma after last prop.
             if i < n:
                 p_str += ','
@@ -110,9 +121,9 @@ class Neo4jComm:
         return res
 
 
-    def create_any_node(self, label:str, **kwargs)-> None:
+    def push_any_node(self, label:str, props:dict)-> None:
         ''' Attemts to create a node with <label> as label.
-            Properties are arbitrary, specified as kwargs
+            Properties are arbitrary, specified as <props>
             such that keys are prop names and vals are vals.
             Batching not supported because it might cause
             a neo4j stack overflow.
@@ -122,96 +133,148 @@ class Neo4jComm:
         # // Open CQL
         cql = f'MERGE (_:{label}'
         # // Add property binding names
-        cql += self.__construct_props(names=kwargs.keys())
+        cql += self.__construct_props(
+            names=props.keys(), 
+            alias=''
+        )
         # // Close CQL and push.
         cql += ')'
-        self.__push(cql=cql, **kwargs)
+        self.__push(cql=cql, **props)
 
 
-    def retrieve_any_node(self, label:str, **kwargs): # -> gen
+    def pull_any_node(self, label:str, props:dict): # -> gen
         ''' Attempts to retrieve any node with <label> as
             label. Properties are arbitrary, specified as 
-            kwargs such that keys are prop names and vals 
+            <props> such that keys are prop names and vals 
             are vals. Can fetch multiple nodes.
         '''
         cql = f'MATCH (n:{label}'
-        cql += self.__construct_props(names=kwargs.keys())
+        # // Add property binding names.
+        cql += self.__construct_props(
+            names=props.keys(),
+            alias=''
+        )
         cql += ') RETURN n'
 
-        res = self.__push_get(cql, **kwargs)
+        res = self.__push_get(cql, **props)
         return self.__extract_neo4j_node(n4j_res_gen=res)
 
 
-
-    def create_any_rel(self, label:str, id_a:str, 
-                                id_b:str, **kwargs)-> None:
-        ''' Attemts to create a relationship with <label> as
-            label. Nodes are arbitrary; the entire db will
-            be searched twice to find node A with any prop
-            val which matches <id_a> and likewise with node
-            B (this will create a (A)->(B) rel). As such,
-            this method is exceptionally expensive.
-            NOTE kwargs keys aID and bID are reserved.
+    def pull_any_node_prop(self, label:str, 
+                            props:dict, prop:str)-> list:
+        ''' Equivalent of self.pull_any_node but only
+            returns the value of node prop named <prop>.
+            Meant for retrieving a specific property from
+            all nodes. For instance, get all wiki article
+            titles.
         '''
-        # // Crash if safety enabled.
-        _SAFECHECK()
-        # // Prop names which match kwargs.
-        prop_names = self.__construct_props(names=kwargs.keys())
-        cql = f'''
-            MATCH (a), (b)
-            // # Look through all nodes to find
-            // # any property which matches $aID
-            WITH a, b, [x in keys(a) 
-                    WHERE a[x] = $aID] as aMatch
-
-            // # Same as above but for (b) & $bID
-            WITH a, b, [x in keys(b) 
-                    WHERE b[x] = $bID] as bMatch
-
-            // # Select two nodes based on match
-           WHERE size(aMatch) > 0 
-             AND size(bMatch) > 0
-
-             // # Link 
-            CREATE (a)-[_:{label} {prop_names}]->(b)
-        '''
-        self.__push(
-            cql=cql,
-            # // Pass kwargs but add node prop IDs
-            **{**kwargs,'aID':id_a, 'bID':id_b}
+        cql = f'MATCH (n:{label}'
+        # // Add property binding names.
+        cql += self.__construct_props(
+            names=props.keys(),
+            alias=''
         )
+        cql += f') RETURN n.{prop}'
+
+        res = self.__push_get(cql, **props)
+        res = next(res)
+        
+        # // Unpack all items in all records in res.
+        return [itm for rec in res for itm in rec]
+
     
-    def create_wiki_rel(self, label:str, wiki_title_a:str,
-                        wiki_title_b:str, **kwargs)-> None:
-        ''' 
-            Attemts to create a relationship with <label> as
-            label -- between two nodes, both of which have
-            an attribute named 'title'. This attribute will
-            be matched with <wiki_title_a> and <wiki_title_b>
-            such that rel is (a)->(b). <kwargs> will be used
-            as attribute & values in the relationship.
-            NOTE <kwargs> keys 'title_a' & 'title_b' are 
-            reserved.
+    def push_any_rel(self, v_label:str, w_label:str, e_label:str,
+                                v_props:dict, w_props:dict, e_props:dict):
+        ''' Create a relationship between any two nodes, where vertice
+            v has label <v_label> with <v_props> as properties --  
+            likewise for vertice w. Relationship/edge will be (v)->(w), 
+            labeled with <e_label> and have <e_props> as properties.
+            Note; MERGE operation as opposed to CREATE.
         '''
-        # // Crash if safety enabled.
-        _SAFECHECK()
-        # // Prop names which match kwargs.
-        prop_names = self.__construct_props(names=kwargs.keys())
+        # // Aliases to differentiate dict keys when pushing.
+        # // Not doing this can be an issue if v_props and
+        # // w_props share keys, which is likely the case.
+        # // Aliasing e_props just in case.
+        v_al, w_al, e_al = 'v', 'w', 'e'
+
+        # // Abbreviation.
+        props = self.__construct_props
+        # // Construct props, using aliased keys. Done before
+        # // transforming dict keys (next code block) to
+        # // preserve the original intended names/keys.
+        v_props_names = props(names=v_props.keys(), alias=v_al)
+        w_props_names = props(names=w_props.keys(), alias=w_al)
+        e_props_names = props(names=e_props.keys(), alias=e_al)
+
+        # // Transform dicts to take into account aliases.
+        # // Note; assuming all keys are strings.
+        v_props = {v_al+k:v for k,v in v_props.items()}
+        w_props = {w_al+k:v for k,v in w_props.items()}
+        e_props = {e_al+k:v for k,v in e_props.items()}
+        
+        # // CQL.
         cql = f'''
-            MATCH (a), (b)
-            WHERE a.title = $title_a
-              AND b.title = $title_b
-           CREATE (a)-[_:{label} {prop_names}]->(b)
+            MATCH 
+                (v:{v_label} {v_props_names}),
+                (w:{w_label} {w_props_names})
+                
+            MERGE (v)-[_:{e_label} {e_props_names}]->(w)
         '''
-        # // Additional bindings to match titles;
-        # // created there for readability.
-        more_bindings = {
-            'title_a':wiki_title_a, 
-            'title_b':wiki_title_b
-        }
-        self.__push(
-            cql=cql,
-            # // Pass kwargs and add more.
-            **{**kwargs, **more_bindings}
+        
+        # // send to db.
+        self.__push(cql=cql, **{**v_props, **w_props, **e_props})
+
+
+# !! Not refactoring <pull_any_rel> even though its _very_ similar to 
+# !! <push_any_rel> for simplicity purposes.
+# !!
+    def pull_any_rel(self, v_label:str, w_label:str, e_label:str,
+                                v_props:dict, w_props:dict, e_props:dict):
+        ''' Attemts to pull nodes by a relationship where vertice v
+            has a label <v_label> with <v_props> as properties -- 
+            likewise for vertice w. Relationship/edge is specified
+            similarly as well, with <e_label> and <e_props>.
+
+            The query will have direction (v)->(w) and the result
+            will be a list in the following format:
+                Each odd index is data for 'from-node'
+                Each even index is data for 'to-node'         
+        '''
+        # // Aliases to differentiate dict keys when pushing.
+        # // Not doing this can be an issue if v_props and
+        # // w_props share keys, which is likely the case.
+        # // Aliasing e_props just in case.
+        v_al, w_al, e_al = 'v', 'w', 'e'
+
+        # // Abbreviation.
+        props = self.__construct_props
+        # // Construct props, using aliased keys. Done before
+        # // transforming dict keys (next code block) to
+        # // preserve the original intended names/keys.
+        v_props_names = props(names=v_props.keys(), alias=v_al)
+        w_props_names = props(names=w_props.keys(), alias=w_al)
+        e_props_names = props(names=e_props.keys(), alias=e_al)
+
+        # // Transform dicts to take into account aliases.
+        # // Note; assuming all keys are strings.
+        v_props = {v_al+k:v for k,v in v_props.items()}
+        w_props = {w_al+k:v for k,v in w_props.items()}
+        e_props = {e_al+k:v for k,v in e_props.items()}
+        
+        # // CQL.
+        cql = f'''
+            MATCH 
+                (v:{v_label} {v_props_names}),
+                (w:{w_label} {w_props_names})
+                 
+            WHERE (v)-[:{e_label} {e_props_names}]->(w)
+            RETURN v,w
+        '''
+        
+        # // send to db.
+        res = self.__push_get(
+            cql=cql, 
+            **{**v_props, **w_props, **e_props}
         )
 
+        return self.__extract_neo4j_node(n4j_res_gen=res)

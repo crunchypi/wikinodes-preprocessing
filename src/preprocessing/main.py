@@ -39,12 +39,23 @@ Arguments:
 
     -wikiapi        Uses data generated from 
                     <-articles> arg to pull data
-                    from wikipedia. 
+                    from wikipedia.
+
+    -neo4jpush      Pushes current state into neo4j.
+                    Note, it is assumed that state
+                    is data from -wikiapi. Arg vals
+                    are expected to be in this form:
+                        -neo4jpush uri,usr,pwd
+                    
 
 Examples:
-    Use data in './data.txt' to fetch article name
+    Use data in './data.txt' to fetch article names
     and use that to retrieve data from wikipedia:
-        > -articles ./data.txt -wikiapi
+    > -articles ./data.txt -wikiapi
+
+    Previous example but with pushing data into
+    Neo4j:
+    > ..previous.. -neo4jpush bolt://10.0.0.3,neo4j,neo4j 
 
 '''
 
@@ -153,11 +164,11 @@ def neo4jpush(arg_id, arg_val, state)-> object:
             which contains valid wiki article
             data. Use -wikiapi before this.
         '''
-        n4jc.create_any_node(
+        n4jc.push_any_node(
             label='wikidata',
             # // Load everything from ArticleData
             # // into the database.
-            **obj.__dict__
+            props=obj.__dict__
         )
 
     return state
