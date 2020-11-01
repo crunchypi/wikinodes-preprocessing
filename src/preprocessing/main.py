@@ -122,10 +122,10 @@ def wikiapi(arg_id, _arg_val, state): # // -> gen
         # // Should be one item there since querying
         # // a single artile name. 
         res = pull_articles(names=article_names)
-        res = next(res)
-        # // Attach prelinked topic before yield.
-        res.topics_prelinked = topic
-        yield res
+        for r in res: # // Iterate generator.
+            # // Attach prelinked topic before yield.
+            r.topics_prelinked = topic
+            yield r
 
 
 def start() -> None:
