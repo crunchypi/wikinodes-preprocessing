@@ -23,6 +23,8 @@ from data_gen.articles import ArticleList, load_articles
 from data_gen.wikiapi import ArticleData, pull_articles
 from neo4j_tools.comm import Neo4jComm
 
+from linking.prelinked.linker import link as prelinked_link
+
 # // Acts as documentation -- also used as 
 # // 'help' printout for CLI
 CLI_HELP = '''
@@ -47,15 +49,27 @@ Arguments:
                     are expected to be in this form:
                         -neo4jpush uri,usr,pwd
                     
+    -neo4j          Prepare a neo4j interface obj.
+                    Arg vals are expected to be:
+                        -neo4j uri,usr,pwd
+
+    -link           try linking wiki nodes in neo4j
+                    db using one of the following
+                    strategies (specify as arg vals):
+                        -prelinked
+                    Note: expects -neo4j arg to be
+                    used before this one.
 
 Examples:
     Use data in './data.txt' to fetch article names
     and use that to retrieve data from wikipedia:
     > -articles ./data.txt -wikiapi
 
-    Previous example but with pushing data into
-    Neo4j:
-    > ..previous.. -neo4jpush bolt://10.0.0.3,neo4j,neo4j 
+    Previous example but with pushing data into Neo4j:
+    > ..previous.. -neo4jpush bolt://10.0.0.3,neo4j,neo4j
+
+    Link nodes in db.
+    > -neo4j bolt://10.0.0.1,neo4j,neo4j -link prelinked
 
 '''
 
@@ -79,6 +93,8 @@ def cli_actions()-> dict:
         '-articles' : [True, articles],
         '-wikiapi'  : [False, wikiapi],
         '-neo4jpush': [True, neo4jpush],
+        '-neo4j'    : [True, neo4j],
+        '-link'     : [True, link]
     }
 
 
@@ -174,6 +190,74 @@ def neo4jpush(arg_id, arg_val, state)-> object:
     return state
 
 
+def neo4j(arg_id, arg_val, state)-> Neo4jComm:
+    arg_val = arg_val.split(',')
+    assert len(arg_val) == 3, f'''
+        Used the following:
+                Arg: '{arg_id}'
+        .. but the following value did not 
+        contain the right amount of into.
+        Should be: 
+            <uri>,<usr>,<pwd>
+        Got:
+            {','.join(arg_val)}
+    '''
+    # // Instantiate neo4j communication tool
+    uri, usr, pwd = arg_val
+    # // Safety for pesky connection issues.
+    n4jc = None
+    try:
+        n4jc = Neo4jComm(uri=uri, usr=usr, pwd=pwd)
+    except Exception as e:
+        print(f'''
+            Error while setting up Neo4j interface.
+            Ensure correct uri, usr and/or pwd.
+            Msg: {e}
+        ''')
+    finally:
+        return n4jc if n4jc else state
+   
+
+def link(arg_id, arg_val, state) -> None:
+    # // Verify that a neo4j obj is in state.
+    assert type(state) is Neo4jComm, f'''
+        Used arg: '{arg_id}'
+        ... but a neo4j interface was not
+        in the current state. Use -neo4j
+        arg before this one.
+    '''
+    # // Available strategies. Key is identifier
+    # // associated with <arg_val>, while value
+    # // is a list with this fmt:
+    # //    [func, {kwargs}]
+    linker_strategies = {
+        'prelinked': [
+            prelinked_link,
+            {
+                'n4jcomm': state,
+                # // Magic vals are properties
+                # // of wiki nodes. @standardise.
+                'topic_key': 'topics_prelinked',
+                'title_key': 'name',
+            }
+        ]
+    }
+    # // Ensure that valid link strategy is used.
+    strategy_list = '\n'.join(linker_strategies.keys())
+    assert arg_val in linker_strategies, f'''
+        Used arg '{arg_id}' with val '{arg_val}'
+        ... but the value was not a recognised 
+        linking strategy. Use one of these:
+            {strategy_list}
+    '''
+    # // Get action list.
+    func_args = linker_strategies[arg_val]
+    # // Put args into func.
+    func_args[0](**func_args[1])
+
+    return state
+
+
 
 
 def start() -> None:
@@ -211,6 +295,8 @@ def start() -> None:
                     f'\n\tException: {e}')
 
             print("\n\n", CLI_HELP)
+            # // Failed; no point in continuing
+            return
         finally:
             # // In either case; increment counter.
             i += step
