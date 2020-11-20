@@ -19,11 +19,14 @@ import sys
 import os
 
 from typing import List
-from data_gen.articles import ArticleList, load_articles
-from data_gen.wikiapi import ArticleData, pull_articles
-from neo4j_tools.comm import Neo4jComm
+from src.typehelpers import TitleTopicPair
+from src.typehelpers import ArticleData
 
-from linking.prelinked.linker import link as prelinked_link
+from src.data_gen.titles import load_titles
+from src.data_gen.wikiapi import pull_articles
+from src.neo4j_tools.comm import Neo4jComm
+
+from src.linking.prelinked.linker import link as prelinked_link
 
 # // Acts as documentation -- also used as 
 # // 'help' printout for CLI
@@ -90,7 +93,7 @@ def cli_actions()-> dict:
         '-inspect'  : [False, inspect],
         '-devhook'  : [False, devhook],
         # // ---------------------------- # //
-        '-articles' : [True, articles],
+        '-titles' : [True, titles],
         '-wikiapi'  : [False, wikiapi],
         '-neo4jpush': [True, neo4jpush],
         '-neo4j'    : [True, neo4j],
@@ -121,7 +124,7 @@ def devhook(arg_id, arg_val, state)-> object:
     return state
 
 
-def articles(arg_id, arg_val, _state): # // -> gen
+def titles(arg_id, arg_val, _state): # // -> gen
     # // Handle file doesn't exist.
     assert os.path.exists(arg_val), f'''
         Used the following:
@@ -130,29 +133,29 @@ def articles(arg_id, arg_val, _state): # // -> gen
         
         ...but the val is not a vald filename.
     '''
-    return load_articles(path=arg_val)
+    return load_titles(path=arg_val)
 
 
 def wikiapi(arg_id, _arg_val, state): # // -> gen
     
     for obj in state:
-        assert type(obj) is ArticleList, '''
+        assert type(obj) is TitleTopicPair, '''
             Used the following:
                 Arg: '{arg_id}'
 
             ..but could not access a state which
-            contains valid wikipedia article names.
-            Use -articles argument before this one.
+            contains valid wikipedia article titles.
+            Use -titles argument before this one.
         '''
         # // Split data
-        topic, article_names = obj.topic, obj.article_names
+        title, topic = obj.title, obj.topic
         # // Get data and extract from generator.
         # // Should be one item there since querying
         # // a single artile name. 
-        res = pull_articles(names=article_names)
+        res = pull_articles(titles=[title])
         for r in res: # // Iterate generator.
             # // Attach prelinked topic before yield.
-            r.topics_prelinked = topic
+            r.topic = topic
             yield r
 
 
@@ -180,8 +183,8 @@ def neo4jpush(arg_id, arg_val, state)-> object:
             which contains valid wiki article
             data. Use -wikiapi before this.
         '''
-        n4jc.push_any_node(
-            label='wikidata',
+        n4jc.push_node(
+            label='WikiData',
             # // Load everything from ArticleData
             # // into the database.
             props=obj.__dict__
@@ -236,9 +239,9 @@ def link(arg_id, arg_val, state) -> None:
             {
                 'n4jcomm': state,
                 # // Magic vals are properties
-                # // of wiki nodes. @standardise.
-                'topic_key': 'topics_prelinked',
-                'title_key': 'name',
+                # // of src.typehelpers.ArticleData
+                'topic_key': 'topic',
+                'title_key': 'title',
             }
         ]
     }

@@ -121,7 +121,7 @@ class Neo4jComm:
         return res
 
 
-    def push_any_node(self, label:str, props:dict)-> None:
+    def push_node(self, label:str, props:dict)-> None:
         ''' Attemts to create a node with <label> as label.
             Properties are arbitrary, specified as <props>
             such that keys are prop names and vals are vals.
@@ -142,7 +142,7 @@ class Neo4jComm:
         self.__push(cql=cql, **props)
 
 
-    def pull_any_node(self, label:str, props:dict): # -> gen
+    def pull_node(self, label:str, props:dict): # -> gen
         ''' Attempts to retrieve any node with <label> as
             label. Properties are arbitrary, specified as 
             <props> such that keys are prop names and vals 
@@ -160,7 +160,7 @@ class Neo4jComm:
         return self.__extract_neo4j_node(n4j_res_gen=res)
 
 
-    def pull_any_node_prop(self, label:str, 
+    def pull_node_prop(self, label:str, 
                             props:dict, prop:str)-> list:
         ''' Equivalent of self.pull_any_node but only
             returns the value of node prop named <prop>.
@@ -183,8 +183,8 @@ class Neo4jComm:
         return [itm for rec in res for itm in rec]
 
     
-    def push_any_rel(self, v_label:str, w_label:str, e_label:str,
-                                v_props:dict, w_props:dict, e_props:dict):
+    def push_rel(self, v_label:str, w_label:str, e_label:str,
+                             v_props:dict, w_props:dict, e_props:dict):
         ''' Create a relationship between any two nodes, where vertice
             v has label <v_label> with <v_props> as properties --  
             likewise for vertice w. Relationship/edge will be (v)->(w), 
@@ -228,8 +228,8 @@ class Neo4jComm:
 # !! Not refactoring <pull_any_rel> even though its _very_ similar to 
 # !! <push_any_rel> for simplicity purposes.
 # !!
-    def pull_any_rel(self, v_label:str, w_label:str, e_label:str,
-                                v_props:dict, w_props:dict, e_props:dict):
+    def pull_rel(self, v_label:str, w_label:str, e_label:str,
+                            v_props:dict, w_props:dict, e_props:dict):
         ''' Attemts to pull nodes by a relationship where vertice v
             has a label <v_label> with <v_props> as properties -- 
             likewise for vertice w. Relationship/edge is specified

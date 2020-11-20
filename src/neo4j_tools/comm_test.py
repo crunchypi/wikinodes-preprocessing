@@ -1,17 +1,19 @@
-from comm import Neo4jComm
+# // Fixing python's absurd pathing so this
+# // file can be ran from this folder.
+import sys
+sys.path.append('../../')
 
+from src.neo4j_tools.comm import Neo4jComm
 
 # !! Beware of repetition -- implemented as 
 # !! non-convoluted as possible for safety
 # !! purposes; this is a test, after-all
 
 
-
-
 # // Keep connection at pkg lvl, most(all?)
 # // tests will use it.
 N4JC = Neo4jComm(
-    uri='', 
+    uri='neo4j://localhost:7687', 
     usr='', 
     pwd=''
 )
@@ -25,9 +27,9 @@ def fmt_msg(func, status:bool)-> str:
     return ok_msg if status else err_msg
 
 
-def test_push_any_node():
+def test_push_node():
     N4JC.clear()
-    N4JC.push_any_node(
+    N4JC.push_node(
         label='Person',
         props={'name':'abc'}
     )
@@ -49,22 +51,22 @@ def test_push_any_node():
 
     # // Return msg.
     return fmt_msg(
-        func=test_push_any_node,
+        func=test_push_node,
         status=ok
     )
 
 
-def test_pull_any_node():
+def test_pull_node():
     N4JC.clear()
     label = 'Person'
     prop = 'name'
     name = 'doesntmatter'
 
-    N4JC.push_any_node(
+    N4JC.push_node(
         label=label,
         props={prop:name}
     )
-    res = N4JC.pull_any_node(
+    res = N4JC.pull_node(
         label=label,
         props={prop:name}
     )
@@ -78,26 +80,26 @@ def test_pull_any_node():
     N4JC.clear(label=label)
 
     return fmt_msg(
-        func=test_pull_any_node,
+        func=test_pull_node,
         status=ok
     )
     
 
-def test_pull_any_node_prop():
+def test_pull_node_prop():
     N4JC.clear()
     label = 'Person'
     prop = 'someprop'
     propval_a, propval_b = 'aa', 'bb'
-    N4JC.push_any_node(
+    N4JC.push_node(
         label=label,
         props={prop:propval_a}
     )
-    N4JC.push_any_node(
+    N4JC.push_node(
         label=label,
         props={prop:propval_b}
     )
     # // Check one single item.
-    res = N4JC.pull_any_node_prop(
+    res = N4JC.pull_node_prop(
         label=label,
         props={},
         prop=prop
@@ -109,16 +111,16 @@ def test_pull_any_node_prop():
     for item in res:
         if item not in [propval_a, propval_b]:
             return fmt_msg(
-                func=test_pull_any_node_prop,
+                func=test_pull_node_prop,
                 status=False
             )
     return fmt_msg(
-        func=test_pull_any_node_prop,
+        func=test_pull_node_prop,
         status=True
     )
 
 
-def test_push_any_rel():
+def test_push_rel():
     N4JC.clear()
 
     # // Vertex no. 1
@@ -135,13 +137,13 @@ def test_push_any_rel():
     # // Insert both nodes.
     nodes = [(v_label, v), (w_label, w)]
     for pair in nodes:
-        N4JC.push_any_node(
+        N4JC.push_node(
             label=pair[0],
             props=pair[1]
         )
 
     # // Link both nodes.
-    N4JC.push_any_rel(
+    N4JC.push_rel(
         v_label=v_label,
         w_label=w_label,
         e_label=e_label,
@@ -174,12 +176,12 @@ def test_push_any_rel():
     N4JC.clear()
 
     return fmt_msg(
-        func=test_push_any_rel,
+        func=test_push_rel,
         status=ok
     )
 
 
-def test_pull_any_rel():
+def test_pull_rel():
     N4JC.clear()
 
     # // Vertex no. 1
@@ -196,13 +198,13 @@ def test_pull_any_rel():
     # // Insert both nodes.
     nodes = [(v_label, v), (w_label, w)]
     for pair in nodes:
-        N4JC.push_any_node(
+        N4JC.push_node(
             label=pair[0],
             props=pair[1]
         )
 
     # // Link both nodes.
-    N4JC.push_any_rel(
+    N4JC.push_rel(
         v_label=v_label,
         w_label=w_label,
         e_label=e_label,
@@ -211,7 +213,7 @@ def test_pull_any_rel():
         e_props=e
     )
     # // Also tested with multiple, it's ok.
-    res = N4JC.pull_any_rel(
+    res = N4JC.pull_rel(
         v_label=v_label,
         w_label=w_label,
         e_label=e_label,
@@ -223,7 +225,7 @@ def test_pull_any_rel():
     # // Cleanup
     N4JC.clear()
     return fmt_msg(
-        func=test_pull_any_rel,
+        func=test_pull_rel,
         # // Verify that odd index is 'from' and
         # // even index is 'to'.
         status=(
@@ -237,11 +239,11 @@ def test_pull_any_rel():
 
 # // --------------Run all--------------// #
 tests = [
-    test_push_any_node,
-    test_pull_any_node,
-    test_pull_any_node_prop,
-    test_push_any_rel,
-    test_pull_any_rel
+    test_push_node,
+    test_pull_node,
+    test_pull_node_prop,
+    test_push_rel,
+    test_pull_rel
 ]
 
 print('Running all tests:')

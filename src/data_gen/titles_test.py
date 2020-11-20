@@ -1,23 +1,32 @@
-import articles
+# // Fixing python's absurd pathing so this
+# // file can be ran from this folder.
+import sys
+sys.path.append('../../')
+
+# // Modules for this test.
 import os
-
-path = '../data/wiki4schools_topics_raw.txt'
-
+from src.data_gen import titles
 
 
-def test_load_articles():
+path = '../data/topics_titles_min.txt'
+
+
+
+
+
+def test_load_titles():
 
     # // Verify that path exists.
     if not os.path.isfile(path):
         return f'\tstatus: fail -- file not found:{path}'
 
     # // Try get data
-    gen = articles.load_articles(
-        path='../data/wiki4schools_topics_raw.txt'
+    gen = titles.load_titles(
+        path=path
     )
     for item in gen:
         # // Left here for future inspection.
-        # print(item.topic)
+        # print(item.topic, item.title)
         return '\tstatus: ok'
 
     return '\tstatus: fail -- empty generator'
@@ -25,7 +34,7 @@ def test_load_articles():
 
 # ------------------test all------------------ # 
 tests = [
-    test_load_articles
+    test_load_titles
 ]
 
 for t in tests:

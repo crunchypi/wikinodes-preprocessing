@@ -4,30 +4,21 @@ article names from .txt lists such that they can be used
 to fetch wiki data with APIs.
 
 Impl:
-    -   ArticleList: Class for typehinting
-    -   load_articles: parses .txt file
+    -   load_titles: parses .txt file
         containing topic- and article names.
         See func docstring for more details.
 
 '''
 
+from src.typehelpers import TitleTopicPair
 
 
 
-
-class ArticleList:
-    'Used for typehinting'
-    def __init__(self, topic:str, article_names:list):
-        self.topic = topic
-        self.article_names = article_names
-
-
-
-def load_articles(path:str, delimiter:str='\t'): # // -> gen
+def load_titles(path:str, delimiter:str='\t'): # // -> gen
     ''' Returns a generator which pulls content from
-        <path> and gives ArticleList objects. The file
-        at <path> is expected to have a very specific
-        format:
+        <path> and gives src.data_gen.TitleTopicPair 
+        objects. The file at <path> is expected to 
+        have a very specific format:
             -   '#' are ignored lines, used for commenting
             -   '[TOPIC=XYZ]' denotes topic start and end.
                 Everything below this notation should be
@@ -58,10 +49,11 @@ def load_articles(path:str, delimiter:str='\t'): # // -> gen
                     current_topic = current_topic.replace(elm, '')
                 continue
 
-            # // Add res content as list.
+            # // Row should be all titles on a single line.
             row = row.replace('\n', '').split(delimiter)
-            yield ArticleList(
-                topic=current_topic,
-                article_names=row
-            )
-
+            for title in row:
+                yield TitleTopicPair(
+                    title=title,
+                    topic=current_topic
+                )
+       

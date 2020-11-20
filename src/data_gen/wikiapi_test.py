@@ -1,24 +1,31 @@
+# // Fixing python's absurd pathing so this
+# // file can be ran from this folder.
+import sys
+sys.path.append('../../')
+
 import os
-import wikiapi
-import articles
+from src.data_gen import wikiapi
+from src.data_gen import titles
+
+from src.typehelpers import TitleTopicPair
 
 # // Sime to check basic usage
-data_simple = ['Last Thursdayism']
+DATA_SIMPLE = ['Last Thursdayism']
 
 # // More realistic data.
-data_path = '../data/wiki4schools_topics_raw.txt'
-assert os.path.isfile(data_path), '''
-    <data_path> does not lead to any valid file.
+data_path = '../data/topics_titles_min.txt'
+assert os.path.isfile(data_path), f'''
+    '!! {data_path}' does not lead to any valid file.
 '''
 
 print('''
-    This test depends on <articles> module. Make
-    sure it is tested before running this test.
+    ?? This test depends on <src..data_gen.titles> module. 
+    ?? Make sure it is tested before running this test.
 ''')
 
 
 def data_gen():
-    return articles.load_articles(path=data_path)
+    return titles.load_titles(path=data_path)
 
 
 def msg_fmt(func, status, extra='')-> str:
@@ -33,13 +40,13 @@ def test_simple_pull_articles():
     # // Abbreviation.
     f = test_simple_pull_articles
     gen = wikiapi.pull_articles(
-        data_simple
+        titles=DATA_SIMPLE
     )
 
     for item in gen:
         # // Left here for future inspection.
-        # print(item.topic)
-        return msg_fmt( func=f, status=True)
+        # print(item.url)
+        return msg_fmt(func=f, status=True)
         
     return msg_fmt(
             func=test_simple_pull_articles,
@@ -55,7 +62,7 @@ def test_realistic_pull_articles():
     articles_checked = 0
     for obj in data_gen():
         # // Verify correct generator val type.
-        if type(obj) is not articles.ArticleList:
+        if type(obj) is not TitleTopicPair:
             return msg_fmt(
                 func=f,
                 status=False,
@@ -64,7 +71,7 @@ def test_realistic_pull_articles():
         
         # // Get article data from API pull.
         gen_sub = wikiapi.pull_articles(
-            names=obj.article_names
+            titles=[obj.title]
         )
 
         # // Switch used for guarding empty generator.
@@ -73,9 +80,9 @@ def test_realistic_pull_articles():
         # // Check generator content.
         for api_res in gen_sub:
             # // Abbreviation.
-            rn = api_res.name
+            rn = api_res.title
             # // Warn if query was modified.
-            if rn not in obj.article_names:
+            if rn not in obj.title:
                 print("\twarn: Modified res:'{rn}'")
                 
             # // Tick and verify.
