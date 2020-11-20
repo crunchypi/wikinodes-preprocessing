@@ -55,23 +55,33 @@ def __pull(title:str, ttl=5)-> WikipediaPage:
 
 
 
-def pull_articles(titles:list): # // -> Generator
+def pull_articles(titles:list, topics:list=[]): # // -> Generator
     ''' Use a list of article <titles> to create
         and return a generator which pulls
         articles from wiki (API) and gives them
         as src.typehelpers.ArticleData instances.
+
+        If <topics> is provided, then each yielded
+        ArticleData will get an attached topic --
+        the match is done by index. Example:
+            ArticleData of title[0] will have
+            topics[0] as topic.
     '''
 
-    for title in titles:
+    for i, title in enumerate(titles):
         data = __pull(title=title)
         # // Negate empty yield.
         if not data:
             continue
 
-        yield ArticleData(
+        article_data = ArticleData(
             title=title,
             url=data.url,
             content=data.content,
             links=data.links,
             html=data.html()
         )
+        if len(topics) > i:
+            article_data.topic = topics[i]
+
+        yield article_data

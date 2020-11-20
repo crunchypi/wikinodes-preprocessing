@@ -35,27 +35,31 @@ CLI_HELP = '''
 CLI tool for orchestrating scripts in submodules.
 -------------------------------------------------
 Baic usage:
-    Argument layout reflects piping of data. For
-    example; arg1 is piped into arg2.
+    Arguments are partially sensitive to position.
+    State between arguments is kept, meaning that
+    if arg2 needs data from arg1, then it will work
+    as long as arg1 comes before arg2, even with an
+    arbitrary amount args in-between.
+
 
 Arguments:
-    -articles       Specify path where article
+    -titles         Specify path where article
                     names are listed.
 
     -wikiapi        Uses data generated from 
-                    <-articles> arg to pull data
+                    <-titles> arg to pull data
                     from wikipedia.
 
-    -neo4jpush      Pushes current state into neo4j.
-                    Note, it is assumed that state
-                    is data from -wikiapi. Arg vals
-                    are expected to be in this form:
-                        -neo4jpush uri,usr,pwd
-                    
     -neo4j          Prepare a neo4j interface obj.
                     Arg vals are expected to be:
                         -neo4j uri,usr,pwd
-
+    
+    -createdb       Pushes data created with
+                    -wikiapi into the neo4j db.
+                    This arg has to come after
+                        -wikiapi (for data)
+                        -neo4j (for db connection).
+                    
     -link           try linking wiki nodes in neo4j
                     db using one of the following
                     strategies (specify as arg vals):
@@ -66,10 +70,14 @@ Arguments:
 Examples:
     Use data in './data.txt' to fetch article names
     and use that to retrieve data from wikipedia:
-    > -articles ./data.txt -wikiapi
+    > -titles ./data.txt -wikiapi
 
-    Previous example but with pushing data into Neo4j:
-    > ..previous.. -neo4jpush bolt://10.0.0.3,neo4j,neo4j
+    Previous example but with pushing data into Neo4j (
+    each argument is a new line for formatting purposes):
+    >   -titles ./data.txt 
+        -wikiapi
+        -neo4j bolt://10.0.0.3,neo4j,neo4j
+        -createdb
 
     Link nodes in db.
     > -neo4j bolt://10.0.0.1,neo4j,neo4j -link prelinked
@@ -95,36 +103,31 @@ def cli_actions()-> dict:
         # // ---------------------------- # //
         '-titles' : [True, titles],
         '-wikiapi'  : [False, wikiapi],
-        '-neo4jpush': [True, neo4jpush],
         '-neo4j'    : [True, neo4j],
+        '-createdb': [False, createdb],
         '-link'     : [True, link]
     }
 
 
 def inspect(arg_id, arg_val, state)-> object:
     '@@ reserved hook for inspecting state'
-    sample = (
-        state[:2] 
-        if type(state) is list else 
-        state
-    )
-    print(f'''
-        arg_id          : {arg_id}
-        arg_val         : {arg_val}
-        state type      : {type(state)}
-        sample(if lst)  : {sample}
-    ''')
-    return state
-
+    state_fmt = ''
+    # // ''.join has an issue with \n
+    for k, v in state.items():
+        state_fmt += f'\n\t {k} : {v}'
+    print("Current State:" + state_fmt)
+    
 
 def devhook(arg_id, arg_val, state)-> object:
     ''' @@ reserved for development; recieve <state> 
         for hooking up experimental modules.
     '''
-    return state
+    s = state['-wikiapi']
+    for obj in s:
+        print(obj.topic, obj.title)
 
 
-def titles(arg_id, arg_val, _state): # // -> gen
+def titles(arg_id, arg_val, state):
     # // Handle file doesn't exist.
     assert os.path.exists(arg_val), f'''
         Used the following:
@@ -133,67 +136,36 @@ def titles(arg_id, arg_val, _state): # // -> gen
         
         ...but the val is not a vald filename.
     '''
-    return load_titles(path=arg_val)
+    state[arg_id] = load_titles(path=arg_val)
 
 
-def wikiapi(arg_id, _arg_val, state): # // -> gen
-    
-    for obj in state:
-        assert type(obj) is TitleTopicPair, '''
-            Used the following:
-                Arg: '{arg_id}'
+def wikiapi(arg_id, _arg_val, state):
+    err = '''
+    Used the following:
+        Arg: '{arg_id}'
 
-            ..but could not access a state which
-            contains valid wikipedia article titles.
-            Use -titles argument before this one.
-        '''
-        # // Split data
-        title, topic = obj.title, obj.topic
-        # // Get data and extract from generator.
-        # // Should be one item there since querying
-        # // a single artile name. 
-        res = pull_articles(titles=[title])
-        for r in res: # // Iterate generator.
-            # // Attach prelinked topic before yield.
-            r.topic = topic
-            yield r
-
-
-def neo4jpush(arg_id, arg_val, state)-> object:
-    arg_val = arg_val.split(',')
-    assert len(arg_val) == 3, '''
-        Used the following:
-                Arg: '{arg_id}'
-        .. but the following value
-        did not contain enough info.
-        Should be: <uri>,<usr>,<pwd>
-        
+    ..but could not access a state which
+    contains valid wikipedia article titles.
+    Use -titles argument before this one.
     '''
-    # // Instantiate neo4j communication tool
-    uri, usr, pwd = arg_val
-    n4jc = Neo4jComm(uri=uri, usr=usr, pwd=pwd)
 
-    for obj in state:
-        # // Verify that -wikiapi was used.
-        assert type(obj) is ArticleData, f'''
-            Used the following:
-                Arg: '{arg_id}'
+    # // Try accessing necessary state data.
+    gen_title_topic_pair = state.get('-titles')
+    assert gen_title_topic_pair is not None, err
 
-            .. but could not access a state 
-            which contains valid wiki article
-            data. Use -wikiapi before this.
-        '''
-        n4jc.push_node(
-            label='WikiData',
-            # // Load everything from ArticleData
-            # // into the database.
-            props=obj.__dict__
-        )
-
-    return state
+    # // Construct 'piped generator'. Unwrapping
+    # // Once since pull_articles yields as 
+    # // many items as the length of titles (1)
+    state[arg_id] = (
+        next(pull_articles(
+            titles=[obj.title],
+            topics=[obj.topic]
+        ))
+        for obj in gen_title_topic_pair
+    )
 
 
-def neo4j(arg_id, arg_val, state)-> Neo4jComm:
+def neo4j(arg_id, arg_val, state):
     arg_val = arg_val.split(',')
     assert len(arg_val) == 3, f'''
         Used the following:
@@ -208,26 +180,51 @@ def neo4j(arg_id, arg_val, state)-> Neo4jComm:
     # // Instantiate neo4j communication tool
     uri, usr, pwd = arg_val
     # // Safety for pesky connection issues.
-    n4jc = None
     try:
-        n4jc = Neo4jComm(uri=uri, usr=usr, pwd=pwd)
+        state[arg_id] = Neo4jComm(
+            uri=uri, usr=usr, pwd=pwd)
     except Exception as e:
-        print(f'''
+        raise ValueError(f'''
             Error while setting up Neo4j interface.
-            Ensure correct uri, usr and/or pwd.
+            Ensure correct uri, usr and/or pwd. And
+            that Neo4j is running.
             Msg: {e}
         ''')
-    finally:
-        return n4jc if n4jc else state
-   
 
+def createdb(arg_id, arg_val, state):
+    # // Try fetch data.
+    gen_article_data = state.get('-wikiapi')
+    assert gen_article_data is not None, '''
+        Tried to create a database but data
+        is missing. Use -wikiapi arg before this.
+    '''
+    # // Try retrieve neo4j obj
+    n4jc = state.get('-neo4j')
+    assert n4jc != None, '''
+        Tried to create a database but the
+        object used for neo4j communication
+        is missing. Use -neo4j arg before this.
+    '''
+    for article_data in gen_article_data:
+        assert type(article_data) is ArticleData, '''
+            Tried to create a db but the type inside
+            generator (made with -wikiapi) is unexpected.
+        '''
+        n4jc.push_node(
+            label='WikiData',
+            # // Load everything from ArticleData
+            # // into the database.
+            props=article_data.__dict__
+        )
+
+   
 def link(arg_id, arg_val, state) -> None:
-    # // Verify that a neo4j obj is in state.
-    assert type(state) is Neo4jComm, f'''
-        Used arg: '{arg_id}'
-        ... but a neo4j interface was not
-        in the current state. Use -neo4j
-        arg before this one.
+    # // Try retrieve neo4j obj
+    n4jc = state.get('-neo4j')
+    assert n4jc != None, '''
+        Tried to create a database but the
+        object used for neo4j communication
+        is missing. Use -neo4j arg before this.
     '''
     # // Available strategies. Key is identifier
     # // associated with <arg_val>, while value
@@ -237,7 +234,7 @@ def link(arg_id, arg_val, state) -> None:
         'prelinked': [
             prelinked_link,
             {
-                'n4jcomm': state,
+                'n4jcomm': n4jc,
                 # // Magic vals are properties
                 # // of src.typehelpers.ArticleData
                 'topic_key': 'topic',
@@ -258,18 +255,16 @@ def link(arg_id, arg_val, state) -> None:
     # // Put args into func.
     func_args[0](**func_args[1])
 
-    return state
-
-
-
 
 def start() -> None:
     'Point of entry of CLI'
 
     # // List of arguments.
     args = sys.argv[1:]
-    # // Keeping state between arguments, used for piping.
-    state = None
+    # // Keeps shared state between arguments. It is
+    # // passed as an arg to each task func, where old or
+    # // previous state is accessed and new state is set.
+    state = {}
 
     # // Odd looping because it enables argument jumping.
     # // Some arguments don't accept values, while others
@@ -287,9 +282,8 @@ def start() -> None:
             next_is_val, func = arg_targets
             # // Optional val for current arg.
             arg_val = args[i+1] if next_is_val else None
-            # // Use task func. Update state if anything is returned.
-            res = func(current_arg, arg_val, state)
-            state = res if res != None else state
+            # // Use task func of current arg&val.
+            func(current_arg, arg_val, state)
             # // Adding potential step.
             step += 1 if next_is_val else 0
 
