@@ -28,9 +28,9 @@ def fmt_msg(func, status:bool)-> str:
 
 
 def test_push_node():
-    N4JC.clear()
+    N4JC.clear(label="UTest")
     N4JC.push_node(
-        label='Person',
+        label='UTest',
         props={'name':'abc'}
     )
     # // Check manually if task is done.
@@ -47,7 +47,7 @@ def test_push_node():
         if item: ok = True
 
     # // Cleanup.
-    N4JC.clear()
+    N4JC.clear(label="UTest")
 
     # // Return msg.
     return fmt_msg(
@@ -57,8 +57,8 @@ def test_push_node():
 
 
 def test_pull_node():
-    N4JC.clear()
-    label = 'Person'
+    N4JC.clear(label="UTest")
+    label = 'UTest'
     prop = 'name'
     name = 'doesntmatter'
 
@@ -86,7 +86,7 @@ def test_pull_node():
     
 
 def test_pull_node_prop():
-    N4JC.clear()
+    N4JC.clear(label="UTest")
     label = 'Person'
     prop = 'someprop'
     propval_a, propval_b = 'aa', 'bb'
@@ -121,17 +121,17 @@ def test_pull_node_prop():
 
 
 def test_push_rel():
-    N4JC.clear()
+    N4JC.clear(label="UTest")
 
     # // Vertex no. 1
-    v_label = 'Person'
+    v_label = 'UTest'
     v = {'name':'aaa'}
     # // Vertex no. 2
-    w_label = 'Person'
+    w_label = 'UTest'
     w = {'name':'bbb'}
 
     # // Edge.
-    e_label = 'POINTS_TO'
+    e_label = 'UTestLink'
     e = {'data':'ccc'}
 
     # // Insert both nodes.
@@ -158,8 +158,8 @@ def test_push_rel():
     # // of this func.
     res = N4JC._Neo4jComm__push_get(
         cql=f'''
-            MATCH (v:Person), 
-                  (w:Person)
+            MATCH (v:UTest), 
+                  (w:UTest)
             WHERE v.name = 'aaa'
               AND w.name = 'bbb'
               AND (v)-[]->(w)
@@ -173,7 +173,9 @@ def test_push_rel():
         if item: ok = True
 
     # // Cleanup.
-    N4JC.clear()
+    N4JC.clear(label="UTest")
+    N4JC.clear(label="UTestLink")
+
 
     return fmt_msg(
         func=test_push_rel,
@@ -182,17 +184,17 @@ def test_push_rel():
 
 
 def test_pull_rel():
-    N4JC.clear()
+    N4JC.clear(label="UTest")
 
     # // Vertex no. 1
-    v_label = 'Person'
+    v_label = 'UTest'
     v = {'name':'aaa'}
     # // Vertex no. 2
-    w_label = 'Person'
+    w_label = 'UTest'
     w = {'name':'bbb'}
 
     # // Edge.
-    e_label = 'POINTS_TO'
+    e_label = 'UTestLink'
     e = {'data':'ccc'}
 
     # // Insert both nodes.
@@ -223,7 +225,8 @@ def test_pull_rel():
     )
 
     # // Cleanup
-    N4JC.clear()
+    N4JC.clear(label="UTest")
+    N4JC.clear(label="UTestLink")
     return fmt_msg(
         func=test_pull_rel,
         # // Verify that odd index is 'from' and
