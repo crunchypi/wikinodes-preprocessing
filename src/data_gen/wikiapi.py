@@ -52,6 +52,8 @@ def __pull(title:str, ttl=5)-> WikipediaPage:
         opt = e.options # // Brevity.
         # // Recursive attempt.
         return __pull(title=opt[0], ttl=ttl-1) if opt else None
+    except wikipedia.exceptions.PageError as e:
+        return None
 
 
 
