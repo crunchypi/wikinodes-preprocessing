@@ -19,7 +19,7 @@ assert os.path.isfile(data_path), f'''
 '''
 
 print('''
-    ?? This test depends on <src..data_gen.titles> module. 
+    ?? This test depends on <src.data_gen.titles> module. 
     ?? Make sure it is tested before running this test.
 ''')
 
@@ -103,10 +103,52 @@ def test_realistic_pull_articles():
         extra=f'Article count: {articles_checked}'
     )
 
+def test_recursive_pull_articles():
+    # // Abbreviation.
+    f = test_recursive_pull_articles
+
+    gen = wikiapi.pull_articles(
+        titles=DATA_SIMPLE,
+        subsearch=1
+    )
+    links = []
+    for i, item in enumerate(gen):
+        # // Left here for future inspection.
+        # print(item.title, item.links, '\n\n')
+        
+        # // Get links of only the first ArticleData
+        # // since subsearch is 1. This is for simplicity.
+        if i == 0:
+            links = item.links
+            continue
+
+        # // All titles except first should be in
+        # // <links> of first ArticleData.
+        title = item.title # // Abbreviation for f string.
+        if title not in links:
+              return msg_fmt(
+                func=test_simple_pull_articles,
+                status=False,
+                extra=f'Unexpected search result: {title}'
+                )
+
+        # // Normal return:
+        # // Don't check all -- it's time expensive.
+        if i >= 3:
+            return msg_fmt(func=f, status=True)
+
+    # // Should have returned by now
+    return msg_fmt(
+            func=test_simple_pull_articles,
+            status=False,
+            extra='Empty generator.'
+        )
+
 # ------------------test all------------------ # 
 tests = [
     test_simple_pull_articles,
-    test_realistic_pull_articles
+    test_realistic_pull_articles,
+    test_recursive_pull_articles
 ]
 
 for t in tests:
