@@ -129,9 +129,7 @@ def devhook(arg_id, arg_val, state)-> object:
     ''' @@ reserved for development; recieve <state> 
         for hooking up experimental modules.
     '''
-    n4jc = Neo4jComm('neo4j://localhost:7687','neo4j','morpheus4j')
-    hyperlinked_link(n4jcomm=n4jc, title_key='title', hlink_key='links')
-
+   
 
 def titles(arg_id, arg_val, state):
     # // Handle file doesn't exist.
@@ -176,7 +174,7 @@ def wikiapi(arg_id, arg_val, state):
         pull_articles(
             titles=[obj.title],
             topics=[obj.topic],
-            subsearch=1
+            subsearch=arg_val
         )
         for obj in gen_title_topic_pair
     )
