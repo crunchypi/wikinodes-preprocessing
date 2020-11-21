@@ -55,7 +55,7 @@ def __pull(title:str, ttl=5)-> WikipediaPage:
 
 
 
-def pull_articles(titles:list, topics:list=[]): # // -> Generator
+def pull_articles(titles:list, topics:list=[], subsearch:int=0): # // -> Gen
     ''' Use a list of article <titles> to create
         and return a generator which pulls
         articles from wiki (API) and gives them
@@ -66,6 +66,11 @@ def pull_articles(titles:list, topics:list=[]): # // -> Generator
         the match is done by index. Example:
             ArticleData of title[0] will have
             topics[0] as topic.
+
+        <subsearch> specifies how many branched
+        (recursive) searches to do, based on 
+        hyperlinks in each article. Ordered in
+        a DFS manner.
     '''
 
     for i, title in enumerate(titles):
@@ -85,3 +90,9 @@ def pull_articles(titles:list, topics:list=[]): # // -> Generator
             article_data.topic = topics[i]
 
         yield article_data
+        
+        if subsearch > 0:
+            yield from pull_articles(
+                titles=data.links,
+                subsearch=subsearch-1
+            )
