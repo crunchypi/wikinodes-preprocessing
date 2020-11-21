@@ -44,5 +44,6 @@ class ArticleData:
         self.links = links
         self.html = html
         # // This is intended to be attached
-        # // after init.
-        self.topic = None
+        # // after init. Cannot be None because
+        # // Neo4j complained about null property.
+        self.topic = ''
