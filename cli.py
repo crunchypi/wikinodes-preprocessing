@@ -26,6 +26,7 @@ from src.data_gen.titles import load_titles
 from src.data_gen.wikiapi import pull_articles
 from src.neo4j_tools.comm import Neo4jComm
 
+from src.linking.hyperlinks.linker import link as hyperlinked_link
 from src.linking.prelinked.linker import link as prelinked_link
 
 # // Acts as documentation -- also used as 
@@ -48,7 +49,12 @@ Arguments:
 
     -wikiapi        Uses data generated from 
                     <-titles> arg to pull data
-                    from wikipedia.
+                    from wikipedia. This arg
+                    expects a value specifying
+                    the amount of subsearches for
+                    each article. These sub-searches
+                    are based on hyperlinks in each
+                    article. 0 = None.
 
     -neo4j          Prepare a neo4j interface obj.
                     Arg vals are expected to be:
@@ -60,10 +66,11 @@ Arguments:
                         -wikiapi (for data)
                         -neo4j (for db connection).
                     
-    -link           try linking wiki nodes in neo4j
+    -link          Try linking wiki nodes in neo4j
                     db using one of the following
                     strategies (specify as arg vals):
-                        -prelinked
+                        hyperlinked
+                        prelinked
                     Note: expects -neo4j arg to be
                     used before this one.
 
@@ -75,7 +82,7 @@ Examples:
     Previous example but with pushing data into Neo4j (
     each argument is a new line for formatting purposes):
     >   -titles ./data.txt 
-        -wikiapi
+        -wikiapi 0
         -neo4j bolt://10.0.0.3,neo4j,neo4j
         -createdb
 
@@ -102,7 +109,7 @@ def cli_actions()-> dict:
         '-devhook'  : [False, devhook],
         # // ---------------------------- # //
         '-titles' : [True, titles],
-        '-wikiapi'  : [False, wikiapi],
+        '-wikiapi'  : [True, wikiapi],
         '-neo4j'    : [True, neo4j],
         '-createdb': [False, createdb],
         '-link'     : [True, link]
@@ -122,9 +129,8 @@ def devhook(arg_id, arg_val, state)-> object:
     ''' @@ reserved for development; recieve <state> 
         for hooking up experimental modules.
     '''
-    s = state['-wikiapi']
-    for obj in s:
-        print(obj.topic, obj.title)
+    n4jc = Neo4jComm('neo4j://localhost:7687','neo4j','morpheus4j')
+    hyperlinked_link(n4jcomm=n4jc, title_key='title', hlink_key='links')
 
 
 def titles(arg_id, arg_val, state):
@@ -139,29 +145,44 @@ def titles(arg_id, arg_val, state):
     state[arg_id] = load_titles(path=arg_val)
 
 
-def wikiapi(arg_id, _arg_val, state):
-    err = '''
-    Used the following:
-        Arg: '{arg_id}'
+def wikiapi(arg_id, arg_val, state):
+    try:
+        arg_val = int(arg_val)
+    except: 
+        print(f'''
+        Used the following:
+            Arg: '{arg_id}'
 
-    ..but could not access a state which
-    contains valid wikipedia article titles.
-    Use -titles argument before this one.
-    '''
+        ..but the following value was not
+        a integer. Got: '{arg_val}'
+        ''')
+        return
 
     # // Try accessing necessary state data.
     gen_title_topic_pair = state.get('-titles')
-    assert gen_title_topic_pair is not None, err
+    assert gen_title_topic_pair is not None, '''
+        Used the following:
+            Arg: '{arg_id}'
 
-    # // Construct 'piped generator'. Unwrapping
-    # // Once since pull_articles yields as 
-    # // many items as the length of titles (1)
-    state[arg_id] = (
-        next(pull_articles(
+        ..but could not access a state which
+        contains valid wikipedia article titles.
+        Use -titles argument before this one.
+    '''
+
+    # // Construct 'piped generator'. This is the
+    # // first layer where ArticleTopicPair gen.
+    # // is converted to ArticleData gen.
+    g  = (
+        pull_articles(
             titles=[obj.title],
-            topics=[obj.topic]
-        ))
+            topics=[obj.topic],
+            subsearch=1
+        )
         for obj in gen_title_topic_pair
+    )
+    # // State unwraps sub gen.
+    state[arg_id] = (
+        sub for sub in g for sub in sub
     )
 
 
@@ -210,6 +231,7 @@ def createdb(arg_id, arg_val, state):
             Tried to create a db but the type inside
             generator (made with -wikiapi) is unexpected.
         '''
+
         n4jc.push_node(
             label='WikiData',
             # // Load everything from ArticleData
@@ -231,14 +253,23 @@ def link(arg_id, arg_val, state) -> None:
     # // is a list with this fmt:
     # //    [func, {kwargs}]
     linker_strategies = {
-        'prelinked': [
-            prelinked_link,
-            {
+        'prelinked': [          # // ID.
+            prelinked_link,     # // Func.
+            {                   # // Func args.
                 'n4jcomm': n4jc,
                 # // Magic vals are properties
                 # // of src.typehelpers.ArticleData
                 'topic_key': 'topic',
                 'title_key': 'title',
+            }
+        ],
+        'hyperlinked': [        # // ID
+            hyperlinked_link,   # // Func.
+            {                   # // Func params.
+                'n4jcomm': n4jc,
+                'title_key': 'title',
+                'hlink_key': 'links'
+
             }
         ]
     }
