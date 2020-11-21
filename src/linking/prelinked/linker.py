@@ -10,72 +10,81 @@ assigned topics. See func docstring for
 more info.
 '''
 
+# !! There is currently a large inefficiency in the link
+# !! function; the most straight-forward thing to do is 
+# !! to send a CQL str to the db which looks like this:
+# !!
+# !!  MATCH (v:WikiData), (b:WikiData)
+# !!  WHERE v.title <> w.title
+# !! CREATE (v)-[:TOPIC {confidence:1}]->(w)
+# !!
+# !! .. but this is not possible due to how Neo4jComm is 
+# !! created. The current approach is more convoluted
+# !! and relies more on Python, but this is percieved to
+# !! be of little consequence at the time (201121) because
+# !! this linker strategy relies on a small amount of
+# !! pre-categorised data ('wikipedia for schools').
+
 
 def link(n4jcomm:Neo4jComm, topic_key:str, title_key:str)-> None:
     ''' Linking strategy which links neo4j wiki nodes by their 
-        pre-assigned topics indirectly through an index node with
-        label 'IndexNode' (will be created with this func). These
-        index nodes will have the following property:
-            1)  Mirrors wiki node property that contains a topic 
-                (specified with <topic_key>).
+        pre-assigned topics, located in the property named
+        <topic_key> of each node.
 
-        Each link between a wiki node and index node will be 
-        labeled with <PRELINKED> and contain the following 
-        property:
-            1)  'confidence' score (will always be 1.0 because
-                it is assumed that topic info in the database is 
-                correct).
+        If node V, W share a topic, then the following is created:
+            (V)-[TOPIC:{confidence:1.0}]->(W) // V != W
+        
+        Confidence, as noted above, will always be 1.0 with this
+        linking strategy because it is assumed that all nodes
+        with a non-empty <topic_key> property have an accurate
+        topic assigned.
     '''
     assert type(n4jcomm) is Neo4jComm, '''
         Tried linking(prelinked) but did not get a neo4j
         communication object.
     '''
-    # // Get all titles.
-    node_titles = n4jcomm.pull_node_prop(
-        label='WikiData',
-        props={}, # Blank because it can be anything.
-        prop=title_key
+    # // Magic convention: this is the label of all
+    # // wiki nodes.
+    wikidata_label = 'WikiData'
+
+    # // Fetch all possible topics 
+    topics = n4jcomm.pull_node_prop(
+        label=wikidata_label,
+        props={},
+        prop=topic_key
     )
-    # // Combine titles with topics.
-    topics_titles = {}
-    for title in node_titles:
-        # // Get topic for current title.
-        topic = n4jcomm.pull_node_prop(
-            label='WikiData',
-            props={title_key:title},
-            prop=topic_key
-        )
-        if not topic:
-            continue
-        
-        # // Update topics_titles to add new
-        # // titles to each topic.
-        topic = topic[0]
-        prev = topics_titles.get(topic)
-        topics_titles[topic] = (
-            prev + [title]
-            if prev else
-            [title]
-        )
+    # // Only unique.
+    topics = set(topics)
+    # // Drop case where topic is not set.
+    try:
+        topics.remove('')
+    except:
+        pass
 
-    # // Create an index node for each title.
-    for topic in topics_titles.keys():
-        n4jcomm.push_node(
-            label='IndexNode',
-            props={topic_key:topic}
-        )
+    # // Topic-oriented relationship creation.
+    for topic in topics:
 
-    # // Connect wiki nodes by their topic
-    # // with an Index node.
-    for topic, titles in topics_titles.items():
-        # // Titles is list.
-            for title in titles:
+        # // Fetch all titles associated with
+        # // the current <topic>
+        titles = n4jcomm.pull_node_prop(
+            label=wikidata_label,
+            props={topic_key:topic},
+            prop=title_key
+        )
+        # // Yes, this.. could be done differentlu. 
+        # // Explanation given in the comment block 
+        # // at the start of this file.
+        for title_v in titles:
+            for title_w in titles:
+                # // None of these: (v)-[]->(v)
+                if title_v == title_w:
+                    continue
+
                 n4jcomm.push_rel(
-                    v_label='WikiData',
-                    w_label='IndexNode',
-                    e_label='PRELINKED',
-                    v_props={title_key: title},
-                    w_props={topic_key: topic},
-                    # // 100% because presorted.
-                    e_props={'confidence':1.0},
+                    v_label=wikidata_label,
+                    w_label=wikidata_label,
+                    e_label='TOPIC',
+                    v_props={title_key:title_v, topic_key:topic},
+                    w_props={title_key:title_w, topic_key:topic},
+                    e_props={'confidence': 1.0}
                 )
