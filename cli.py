@@ -19,15 +19,15 @@ import sys
 import os
 
 from typing import List
-from src.typehelpers import TitleTopicPair
 from src.typehelpers import ArticleData
+from src.typehelpers import db_spec_wikidata_label
+from src.typehelpers import db_spec_fulltext_index
 
 from src.data_gen.titles import load_titles
 from src.data_gen.wikiapi import pull_articles
 from src.neo4j_tools.comm import Neo4jComm
 
 from src.linking.hyperlinks.linker import link as hyperlinked_link
-from src.linking.prelinked.linker import link as prelinked_link
 
 # // Acts as documentation -- also used as 
 # // 'help' printout for CLI
@@ -66,13 +66,9 @@ Arguments:
                         -wikiapi (for data)
                         -neo4j (for db connection).
                     
-    -link          Try linking wiki nodes in neo4j
-                    db using one of the following
-                    strategies (specify as arg vals):
-                        hyperlinked
-                        prelinked
-                    Note: expects -neo4j arg to be
-                    used before this one.
+    -link          Try linking wiki nodes in neo4j.
+                   Note: expects -neo4j arg to be
+                   used before this one.
 
 Examples:
     Use data in './data.txt' to fetch article names
@@ -83,11 +79,11 @@ Examples:
     each argument is a new line for formatting purposes):
     >   -titles ./data.txt 
         -wikiapi 0
-        -neo4j bolt://10.0.0.3,neo4j,neo4j
+        -neo4j neo4j://localhost:7687,neo4j,neo4j
         -createdb
 
     Link nodes in db.
-    > -neo4j bolt://10.0.0.1,neo4j,neo4j -link prelinked
+    > -neo4j neo4j://localhost:7687,neo4j,neo4j -link
 
 '''
 
@@ -112,7 +108,7 @@ def cli_actions()-> dict:
         '-wikiapi'  : [True, wikiapi],
         '-neo4j'    : [True, neo4j],
         '-createdb': [False, createdb],
-        '-link'     : [True, link]
+        '-link'     : [False, link]
     }
 
 
@@ -138,7 +134,7 @@ def titles(arg_id, arg_val, state):
             Arg: '{arg_id}'
             Val: '{arg_val}'
         
-        ...but the val is not a vald filename.
+        ...but the val is not a valid filename.
     '''
     state[arg_id] = load_titles(path=arg_val)
 
@@ -157,8 +153,8 @@ def wikiapi(arg_id, arg_val, state):
         return
 
     # // Try accessing necessary state data.
-    gen_title_topic_pair = state.get('-titles')
-    assert gen_title_topic_pair is not None, '''
+    gen_titles = state.get('-titles')
+    assert gen_titles is not None, '''
         Used the following:
             Arg: '{arg_id}'
 
@@ -168,15 +164,14 @@ def wikiapi(arg_id, arg_val, state):
     '''
 
     # // Construct 'piped generator'. This is the
-    # // first layer where ArticleTopicPair gen.
+    # // first layer where article title gen.
     # // is converted to ArticleData gen.
     g  = (
         pull_articles(
-            titles=[obj.title],
-            topics=[obj.topic],
+            titles=[title],
             subsearch=arg_val
         )
-        for obj in gen_title_topic_pair
+        for title in gen_titles
     )
     # // State unwraps sub gen.
     state[arg_id] = (
@@ -224,15 +219,12 @@ def createdb(arg_id, arg_val, state):
         object used for neo4j communication
         is missing. Use -neo4j arg before this.
     '''
-    # // Hardcoded label of wiki nodes in db.
-    wikidata_label = 'WikiData'
-    # // Unsafe index creation: <name> is hardcoded
-    # // here. The name of <prop> refers to the content
-    # // var name in ArticleData (found in src/typehelpers)
     try:
         n4jc.create_ftindex(
-            name='ArticleContentIndex',
-            label=wikidata_label,
+            name=db_spec_fulltext_index,
+            label=db_spec_wikidata_label,
+            # // Refers to the content property of
+            # // ArticleData (in typehelpers.py).
             prop='content'
         )
     except:
@@ -245,7 +237,7 @@ def createdb(arg_id, arg_val, state):
         '''
 
         n4jc.push_node(
-            label=wikidata_label,
+            label=db_spec_wikidata_label,
             # // Load everything from ArticleData
             # // into the database.
             props=article_data.__dict__
@@ -260,43 +252,14 @@ def link(arg_id, arg_val, state) -> None:
         object used for neo4j communication
         is missing. Use -neo4j arg before this.
     '''
-    # // Available strategies. Key is identifier
-    # // associated with <arg_val>, while value
-    # // is a list with this fmt:
-    # //    [func, {kwargs}]
-    linker_strategies = {
-        'prelinked': [          # // ID.
-            prelinked_link,     # // Func.
-            {                   # // Func args.
-                'n4jcomm': n4jc,
-                # // Magic vals are properties
-                # // of src.typehelpers.ArticleData
-                'topic_key': 'topic',
-                'title_key': 'title',
-            }
-        ],
-        'hyperlinked': [        # // ID
-            hyperlinked_link,   # // Func.
-            {                   # // Func params.
-                'n4jcomm': n4jc,
-                'title_key': 'title',
-                'hlink_key': 'links'
-
-            }
-        ]
-    }
-    # // Ensure that valid link strategy is used.
-    strategy_list = '\n'.join(linker_strategies.keys())
-    assert arg_val in linker_strategies, f'''
-        Used arg '{arg_id}' with val '{arg_val}'
-        ... but the value was not a recognised 
-        linking strategy. Use one of these:
-            {strategy_list}
-    '''
-    # // Get action list.
-    func_args = linker_strategies[arg_val]
-    # // Put args into func.
-    func_args[0](**func_args[1])
+    # // Call linking routine; vals of <title_key> and
+    # // <hlink_key> refer to properties of ArticleData
+    # // found in typehelpers.py.
+    hyperlinked_link(
+            n4jcomm=n4jc,
+            title_key='title',
+            hlink_key='links'
+    )
 
 
 def start() -> None:
@@ -304,6 +267,9 @@ def start() -> None:
 
     # // List of arguments.
     args = sys.argv[1:]
+    if len(args) == 0 :
+        print(CLI_HELP)
+        return
     # // Keeps shared state between arguments. It is
     # // passed as an arg to each task func, where old or
     # // previous state is accessed and new state is set.

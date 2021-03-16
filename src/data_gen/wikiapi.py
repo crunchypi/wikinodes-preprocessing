@@ -30,7 +30,7 @@ from src.typehelpers import ArticleData
 # // Used for pausing API requests to avoid spamming.
 # // Relying on this more than the wikipedia (mod)
 # // ratelimit setting.
-API_PAUSE_SEC = 0.2
+API_PAUSE_SEC = 1
 
 
 
@@ -57,23 +57,17 @@ def __pull(title:str, ttl=5)-> WikipediaPage:
 
 
 
-def pull_articles(titles:list, topics:list=[], subsearch:int=0): # // -> Gen
+def pull_articles(titles:list, subsearch:int=0): # // -> Gen
     ''' Use a list of article <titles> to create and return a 
         generator which pulls articles from wiki (API) and gives
         them as src.typehelpers.ArticleData instances.
-
-        If <topics> is provided, then each yielded ArticleData 
-        will get an attached topic -- the match is done by index. 
-        Example:
-            ArticleData of title[0] will have
-            topics[0] as topic.
 
         <subsearch> specifies how many branched (recursive) 
         searches to do, based on hyperlinks in each article. 
         Ordered in a DFS manner.
     '''
 
-    for i, title in enumerate(titles):
+    for title in titles:
         data = __pull(title=title)
         # // Negate empty yield.
         if not data:
@@ -86,8 +80,6 @@ def pull_articles(titles:list, topics:list=[], subsearch:int=0): # // -> Gen
             links=data.links,
             html=data.html()
         )
-        if len(topics) > i:
-            article_data.topic = topics[i]
 
         yield article_data
         

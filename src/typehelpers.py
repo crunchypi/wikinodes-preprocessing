@@ -1,25 +1,15 @@
 '''
-This module contains types which are used
-for convenience in this project. They do
-not contain any methods (only vals) and 
-only act as documentation and an 
-alternative to just passing around dicts. 
+This module contains some standardization
+for the purpose of convenience in this project
+(a few vars to reduce hardcoding + typed dict).
 '''
 
-
-
-
-
-class TitleTopicPair:
-    ''' Used for loading wiki titles and
-        topics (pre-categorised) from disk.
-        These are primarily meant to be
-        used for pulling data from the
-        Wikipedia API.
-    '''
-    def __init__(self, title:str, topic:str):
-        self.title = title
-        self.topic = topic
+# // Label of wikipedia article nodes.
+db_spec_wikidata_label = 'WikiData'
+# // 'Label' of links between wiki article nodes.
+db_spec_wikidata_link = 'HYPERLINKS'
+# // Name of fulltext index.
+db_spec_fulltext_index = 'ArticleContentIndex'
 
 
 class ArticleData:
