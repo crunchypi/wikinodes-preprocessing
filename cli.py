@@ -224,6 +224,20 @@ def createdb(arg_id, arg_val, state):
         object used for neo4j communication
         is missing. Use -neo4j arg before this.
     '''
+    # // Hardcoded label of wiki nodes in db.
+    wikidata_label = 'WikiData'
+    # // Unsafe index creation: <name> is hardcoded
+    # // here. The name of <prop> refers to the content
+    # // var name in ArticleData (found in src/typehelpers)
+    try:
+        n4jc.create_ftindex(
+            name='ArticleContentIndex',
+            label=wikidata_label,
+            prop='content'
+        )
+    except:
+        pass
+
     for article_data in gen_article_data:
         assert type(article_data) is ArticleData, '''
             Tried to create a db but the type inside
@@ -231,7 +245,7 @@ def createdb(arg_id, arg_val, state):
         '''
 
         n4jc.push_node(
-            label='WikiData',
+            label=wikidata_label,
             # // Load everything from ArticleData
             # // into the database.
             props=article_data.__dict__
