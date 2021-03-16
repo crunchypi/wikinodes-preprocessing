@@ -1,5 +1,7 @@
 # // Only used for typehinting in this module.
 from src.neo4j_tools.comm import Neo4jComm
+# // Namings
+import src.typehelpers as typehelpers
 
 '''
 Module containing a linker function which
@@ -19,12 +21,9 @@ def link(n4jcomm:Neo4jComm, title_key:str, hlink_key:str):
         Tried linking(hyperlinks) but did not get a valid
         neo4j comminication object <n4jcomm>.
     '''
-    # // Magic convention: this is the label of all
-    # // wiki nodes.
-    wikidata_label = 'WikiData'
     # // Get titles of all WikiData nodes.
     titles = n4jcomm.pull_node_prop(
-        label=wikidata_label,
+        label=typehelpers.db_spec_wikidata_label,
         props={},
         prop=title_key
     )
@@ -38,7 +37,7 @@ def link(n4jcomm:Neo4jComm, title_key:str, hlink_key:str):
     for title in titles:
         # // Get all hyperlinks.
         hlinks = n4jcomm.pull_node_prop(
-            label=wikidata_label,
+            label=typehelpers.db_spec_wikidata_label,
             props={title_key:title},
             prop=hlink_key
         )
@@ -58,9 +57,9 @@ def link(n4jcomm:Neo4jComm, title_key:str, hlink_key:str):
                 continue
             
             n4jcomm.push_rel(
-                v_label=wikidata_label,
-                w_label=wikidata_label,
-                e_label='HYPERLINKS',
+                v_label=typehelpers.db_spec_wikidata_label,
+                w_label=typehelpers.db_spec_wikidata_label,
+                e_label=typehelpers.db_spec_wikidata_link,
                 v_props={title_key:title},
                 w_props={title_key:title_other},
                 e_props={}

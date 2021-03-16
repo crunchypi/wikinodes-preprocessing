@@ -1,0 +1,12 @@
+# CopyPaste of topics and article names in
+# http://schools-wikipedia.org/wp/index/subject-Art.html
+# File rules: hash comments (python comments) and empty
+# lins are ignored.
+
+Abstract art
+Aesthetics
+Art
+
+0 (number)
+1 (number)
+Abacus
