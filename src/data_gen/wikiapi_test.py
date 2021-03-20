@@ -7,7 +7,6 @@ import os
 from src.data_gen import wikiapi
 from src.data_gen import titles
 
-from src.typehelpers import TitleTopicPair
 
 # // Sime to check basic usage
 DATA_SIMPLE = ['Last Thursdayism']
@@ -60,18 +59,11 @@ def test_realistic_pull_articles():
     f = test_realistic_pull_articles
     # // Used for return value to see how much was pulled.
     articles_checked = 0
-    for obj in data_gen():
-        # // Verify correct generator val type.
-        if type(obj) is not TitleTopicPair:
-            return msg_fmt(
-                func=f,
-                status=False,
-                extra=f'Unexpected gen type:{type(obj)}'
-            )
+    for title in data_gen():
         
         # // Get article data from API pull.
         gen_sub = wikiapi.pull_articles(
-            titles=[obj.title]
+            titles=[title]
         )
 
         # // Switch used for guarding empty generator.
@@ -79,10 +71,8 @@ def test_realistic_pull_articles():
         
         # // Check generator content.
         for api_res in gen_sub:
-            # // Abbreviation.
-            rn = api_res.title
             # // Warn if query was modified.
-            if rn not in obj.title:
+            if api_res.title != title:
                 print("\twarn: Modified res:'{rn}'")
                 
             # // Tick and verify.

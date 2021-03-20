@@ -278,3 +278,15 @@ class Neo4jComm:
         )
 
         return self.__extract_neo4j_node(n4j_res_gen=res)
+
+
+    def create_ftindex(self, name:str, label:str, prop:str):
+        ''' Creates a fulltext index unsafely (i.e doesn't check
+            if one exists and without parameterization). Only one
+            label & prop allowed.
+        '''
+        self.__push(cql=f'''
+            CALL db.index.fulltext.createNodeIndex(
+                '{name}', ['{label}'], ['{prop}'])
+        ''')
+
