@@ -12,7 +12,7 @@ from src.data_gen import titles
 DATA_SIMPLE = ['Last Thursdayism']
 
 # // More realistic data.
-data_path = '../data/topics_titles_min.txt'
+data_path = '../data/titles_min.txt'
 assert os.path.isfile(data_path), f'''
     '!! {data_path}' does not lead to any valid file.
 '''
