@@ -10,7 +10,8 @@ First, Neo4j should be installed and started. Additionally, there are a couple o
 
 </br>
 
-Using this code is primarily done through the cli.py file in root, the options are as follows (help copy-paste):
+Using this code is primarily done through the cli.py file in root, the options are as follows (help copy-paste): <br>
+(**Note** there are a couple of files in root/data/ which contain Wikipedia article titles, used for '-titles' switch)
 
 ```
 -------------------------------------------------
@@ -47,12 +48,12 @@ Arguments:
                    Note: expects -neo4j arg to be
                    used before this one.
 Examples:
-    Use data in './data.txt' to fetch article names
-    and use that to retrieve data from wikipedia:
-    > -titles ./data.txt -wikiapi
+    Use data in './data/titles_min.txt' to fetch article
+    names and use that to retrieve data from wikipedia:
+    > -titles ./data/titles_min.txt -wikiapi 0
     Previous example but with pushing data into Neo4j (
     each argument is a new line for formatting purposes):
-    >   -titles ./data.txt 
+    >   -titles ./data/titles_min.txt
         -wikiapi 0
         -neo4j neo4j://localhost:7687,neo4j,neo4j
         -createdb
