@@ -1,8 +1,7 @@
 '''
 Main works as CLI tool for orchestrating
 submodule scripts -- meant to be 'thin glue'
-of loosly coupled modules (which should hide
-complexity from this mod).
+for the other modules in this project.
 
 See mod lvl <CLI_HELP> str for more info.
 
@@ -18,7 +17,6 @@ Convention:
 import sys
 import os
 
-from typing import List
 from src.typehelpers import ArticleData
 from src.typehelpers import db_spec_wikidata_label
 from src.typehelpers import db_spec_fulltext_index
@@ -71,13 +69,13 @@ Arguments:
                    used before this one.
 
 Examples:
-    Use data in './data.txt' to fetch article names
-    and use that to retrieve data from wikipedia:
-    > -titles ./data.txt -wikiapi
+    Use data in './data/titles_min.txt' to fetch article
+    names and use that to retrieve data from wikipedia:
+    > -titles ./data/titles_min.txt -wikiapi 0
 
     Previous example but with pushing data into Neo4j (
     each argument is a new line for formatting purposes):
-    >   -titles ./data.txt 
+    >   -titles ./data/titles_min.txt
         -wikiapi 0
         -neo4j neo4j://localhost:7687,neo4j,neo4j
         -createdb
@@ -112,7 +110,7 @@ def cli_actions()-> dict:
     }
 
 
-def inspect(arg_id, arg_val, state)-> object:
+def inspect(arg_id, arg_val, state):
     '@@ reserved hook for inspecting state'
     state_fmt = ''
     # // ''.join has an issue with \n
@@ -121,7 +119,7 @@ def inspect(arg_id, arg_val, state)-> object:
     print("Current State:" + state_fmt)
     
 
-def devhook(arg_id, arg_val, state)-> object:
+def devhook(arg_id, arg_val, state):
     ''' @@ reserved for development; recieve <state> 
         for hooking up experimental modules.
     '''
@@ -244,7 +242,7 @@ def createdb(arg_id, arg_val, state):
         )
 
    
-def link(arg_id, arg_val, state) -> None:
+def link(arg_id, arg_val, state):
     # // Try retrieve neo4j obj
     n4jc = state.get('-neo4j')
     assert n4jc != None, '''
@@ -262,7 +260,7 @@ def link(arg_id, arg_val, state) -> None:
     )
 
 
-def start() -> None:
+def start():
     'Point of entry of CLI'
 
     # // List of arguments.

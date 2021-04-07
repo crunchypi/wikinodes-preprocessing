@@ -12,7 +12,7 @@ from src.data_gen import titles
 DATA_SIMPLE = ['Last Thursdayism']
 
 # // More realistic data.
-data_path = '../data/titles_min.txt'
+data_path = '../../data/titles_min.txt'
 assert os.path.isfile(data_path), f'''
     '!! {data_path}' does not lead to any valid file.
 '''
@@ -20,6 +20,10 @@ assert os.path.isfile(data_path), f'''
 print('''
     ?? This test depends on <src.data_gen.titles> module. 
     ?? Make sure it is tested before running this test.
+
+    !! Also, the title list used in this test might be long,
+    !! so the test is probably ok to quit after the first
+    !! printout (after this) -- if the result is ok.
 ''')
 
 
