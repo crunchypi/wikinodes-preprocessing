@@ -20,7 +20,7 @@ class ArticleData:
         __dict__ of this class will be 
         mirrored).
     '''
-    def __init__( # // Don't hit me, blame google :<
+    def __init__( 
             self, 
             title:str, 
             url:str,
