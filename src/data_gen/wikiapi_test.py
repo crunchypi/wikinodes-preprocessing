@@ -7,13 +7,12 @@ import os
 from src.data_gen import wikiapi
 from src.data_gen import titles
 
-from src.typehelpers import TitleTopicPair
 
 # // Sime to check basic usage
 DATA_SIMPLE = ['Last Thursdayism']
 
 # // More realistic data.
-data_path = '../data/topics_titles_min.txt'
+data_path = '../../data/titles_min.txt'
 assert os.path.isfile(data_path), f'''
     '!! {data_path}' does not lead to any valid file.
 '''
@@ -21,6 +20,10 @@ assert os.path.isfile(data_path), f'''
 print('''
     ?? This test depends on <src.data_gen.titles> module. 
     ?? Make sure it is tested before running this test.
+
+    !! Also, the title list used in this test might be long,
+    !! so the test is probably ok to quit after the first
+    !! printout (after this) -- if the result is ok.
 ''')
 
 
@@ -60,18 +63,11 @@ def test_realistic_pull_articles():
     f = test_realistic_pull_articles
     # // Used for return value to see how much was pulled.
     articles_checked = 0
-    for obj in data_gen():
-        # // Verify correct generator val type.
-        if type(obj) is not TitleTopicPair:
-            return msg_fmt(
-                func=f,
-                status=False,
-                extra=f'Unexpected gen type:{type(obj)}'
-            )
+    for title in data_gen():
         
         # // Get article data from API pull.
         gen_sub = wikiapi.pull_articles(
-            titles=[obj.title]
+            titles=[title]
         )
 
         # // Switch used for guarding empty generator.
@@ -79,10 +75,8 @@ def test_realistic_pull_articles():
         
         # // Check generator content.
         for api_res in gen_sub:
-            # // Abbreviation.
-            rn = api_res.title
             # // Warn if query was modified.
-            if rn not in obj.title:
+            if api_res.title != title:
                 print("\twarn: Modified res:'{rn}'")
                 
             # // Tick and verify.
